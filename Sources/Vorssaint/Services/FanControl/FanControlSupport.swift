@@ -416,6 +416,17 @@ enum FanControlPolicy {
     }
 }
 
+/// Fan Control needs the protected helper, which is shipped only in Apple
+/// Silicon builds. Keep the capability decision centralized so Intel never
+/// starts the service or attempts to manage its helper.
+enum FanControlArchitectureSupport {
+    #if arch(arm64)
+    static let isSupported = true
+    #else
+    static let isSupported = false
+    #endif
+}
+
 enum SMCValueCodec {
     static func decode(_ bytes: [UInt8], type: String) -> Double? {
         switch type {

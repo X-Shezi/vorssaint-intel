@@ -26,7 +26,7 @@
   <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/v/release/vorssaint/vorssaint-utils?label=release&color=4c8dff" alt="Latest release"></a>
   <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/downloads/vorssaint/vorssaint-utils/total?color=4c8dff" alt="Downloads"></a>
   <a href="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml"><img src="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
-  <a href="#what-you-need"><img src="https://img.shields.io/badge/macOS-14%2B%20Apple%20Silicon-black" alt="macOS 14 and newer, Apple Silicon"></a>
+  <a href="#what-you-need"><img src="https://img.shields.io/badge/macOS-14%2B%20Intel%20%26%20Apple%20Silicon-black" alt="macOS 14 and newer, Intel and Apple Silicon"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License GPL 3.0 or later"></a>
 </p>
 
@@ -207,8 +207,13 @@ See the [permissions guide](docs/PERMISSIONS.md) for which features need access 
 
 ## What you need
 
-- A Mac with Apple Silicon
+- A Mac with Apple Silicon or Intel
 - macOS 14 Sonoma or newer
+
+Fan control works on Apple Silicon Macs only; on an Intel build the feature
+can never be installed, so Settings and the first-run picker show its row
+disabled with the reason, and the helper and its launch daemon are never
+built, bundled or registered.
 
 ### Build it yourself
 

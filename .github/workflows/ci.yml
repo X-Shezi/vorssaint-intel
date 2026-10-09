@@ -13,6 +13,46 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  intel:
+    name: Intel build & selftest
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify Intel runner
+        run: test "$(uname -m)" = x86_64
+
+      - name: Build
+        run: ARCH=x86_64 ./build.sh
+
+      - name: Verify Intel bundle contents
+        run: |
+          file build/Vorssaint | grep -F x86_64
+          file build/stage/Vorssaint.app/Contents/Frameworks/libVorssaintNowPlaying.dylib | grep -F x86_64
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchServices/com.vorssaint.utils.fan-control
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchDaemons/com.vorssaint.utils.fan-control.plist
+
+      - name: Selftest
+        run: ARCH=x86_64 ./build/Vorssaint --selftest
+
+      - name: Package DMG
+        run: ./Tools/make-dmg.sh
+
+      - name: Upload Intel DMG
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vorssaint-intel-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Unit tests
+        run: ARCH=x86_64 ./build.sh --test
+
   compatibility:
     name: Swift 6.0.3 compatibility
     runs-on: macos-15

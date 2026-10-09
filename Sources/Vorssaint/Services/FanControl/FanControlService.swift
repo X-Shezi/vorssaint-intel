@@ -270,6 +270,10 @@ final class FanControlService: ObservableObject {
     /// outlives the bundle, so a silent failure here reads as success forever.
     @discardableResult
     static func restoreAndUnregisterForRemoval() -> Bool {
+        // The one place the architecture matters. A build that never shipped
+        // the helper has nothing to unregister, and asking a plist that was
+        // never bundled would report the uninstall as failed.
+        guard FanControlArchitectureSupport.isSupported else { return true }
         let service = appService
         guard service.status == .enabled else {
             guard service.status != .notRegistered else { return true }

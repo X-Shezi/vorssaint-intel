@@ -5,18 +5,22 @@ under GPL-3.0-or-later unless stated otherwise.
 
 ## Getting started
 
-You need macOS 14 or newer, Apple Silicon and the Xcode Command Line Tools.
+You need macOS 14 or newer, Apple Silicon or Intel and the Xcode Command Line Tools.
 The project builds with `build.sh`, without an Xcode project or external package
 dependencies. `Package.swift` supports editor indexing; it does not assemble or
 sign the app bundle.
 
 ```sh
-git clone https://github.com/vorssaint/vorssaint-utils.git
-cd vorssaint-utils
+git clone https://github.com/X-Shezi/vorssaint-intel.git
+cd vorssaint-intel
 ./build.sh --dev
 ./build/VorssaintDeveloper --selftest
 ./build.sh --test
 ```
+
+`build.sh` builds for the host architecture; `ARCH=x86_64` and `ARCH=arm64`
+select a slice explicitly, which is how CI produces and releases the Intel
+build.
 
 To install and launch the separate Developer app, use `./build.sh --dev --install`.
 It has its own preferences and permissions and does not replace the official app.
@@ -33,6 +37,10 @@ failures. For stale grants, see [troubleshooting](docs/TROUBLESHOOTING.md#resett
 
 Official releases use Developer ID signing and notarization through the protected
 release workflow. Local signing does not produce an official release.
+
+This fork has no Developer ID and no notarization to use: its releases are
+ad-hoc signed and rely on the installer clearing the quarantine, which the
+release notes spell out.
 
 ## Scope and implementation
 
@@ -109,6 +117,14 @@ Before sending a version tag, validate the final commit on `main`, confirm its
 verified signature, and match `Resources/Info.plist` and the release notes to the
 chosen version. Use a signed tag such as `vX.Y.Z-beta.N` or `vX.Y.Z`.
 Sending the tag starts [the release workflow](.github/workflows/release.yml).
+
+That workflow never runs here: it is gated to the official repository and the
+maintainer's signing identity. This fork publishes through
+[the Intel release workflow](.github/workflows/release-intel.yml) instead. A
+tag push does not start CI, so the release job rebuilds the x86_64 app on
+`macos-15-intel`, re-checks the bundle and its selftest, packages the DMG with
+a `.sha256`, and attaches both to a GitHub Release for the tag. Rerunning the
+job replaces the assets in place rather than creating a second release.
 
 The protected `release-signing` environment holds the signing and notarization
 credentials. The workflow builds, signs and notarizes the app and DMG, then

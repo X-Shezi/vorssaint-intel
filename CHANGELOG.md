@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Intel
+
+- This fork builds for Intel Macs as well as Apple Silicon. `build.sh` takes
+  `ARCH=x86_64`, CI proves the slice on an Intel runner, and
+  `release-intel.yml` publishes a disk image for the tag.
+- Fan Control can never install on an Intel build: its protected helper ships
+  for Apple Silicon only, so Settings and the first-run picker show the row
+  disabled with the reason, and the helper and its launch daemon are never
+  built, bundled or registered.
+- Releases cut here are ad-hoc signed and not notarized, so macOS needs the
+  quarantine cleared before the first launch. Every release note carries the
+  command; Apple Silicon Macs should keep using upstream.
+
 ## [3.4.1] - 2026-10-08
 
 ### Summary

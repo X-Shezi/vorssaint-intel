@@ -23,9 +23,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/v/release/vorssaint/vorssaint-utils?label=release&color=4c8dff" alt="Latest release"></a>
-  <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/downloads/vorssaint/vorssaint-utils/total?color=4c8dff" alt="Downloads"></a>
-  <a href="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml"><img src="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
+  <a href="https://github.com/X-Shezi/vorssaint-intel/releases"><img src="https://img.shields.io/github/v/release/X-Shezi/vorssaint-intel?label=intel%20release&color=4c8dff" alt="Latest release"></a>
+  <a href="https://github.com/X-Shezi/vorssaint-intel/releases"><img src="https://img.shields.io/github/downloads/X-Shezi/vorssaint-intel/total?color=4c8dff" alt="Downloads"></a>
+  <a href="https://github.com/X-Shezi/vorssaint-intel/actions/workflows/ci.yml"><img src="https://github.com/X-Shezi/vorssaint-intel/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
   <a href="#what-you-need"><img src="https://img.shields.io/badge/macOS-14%2B%20Intel%20%26%20Apple%20Silicon-black" alt="macOS 14 and newer, Intel and Apple Silicon"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License GPL 3.0 or later"></a>
 </p>
@@ -55,6 +55,9 @@
 </p>
 
 Per app volume, a real system monitor, a better app switcher, window snapping, Dock previews, clipboard history, text snippets, a file shelf, an uninstaller. The utilities Mac users usually buy one by one, together behind a single menu bar icon, with no account, no telemetry and no subscription.
+
+> [!IMPORTANT]
+> **This is the Intel fork.** Upstream targets Apple Silicon only; this repository adds the `x86_64` build path, keeps Fan Control locked to Apple Silicon where the protected helper cannot ship, and publishes its own disk images. Everything else is stock upstream. Apple Silicon Macs should keep using [upstream](https://github.com/vorssaint/vorssaint-utils) — its builds are notarized and its updates arrive from the Homebrew cask.
 
 ## Install only what you use
 
@@ -170,15 +173,29 @@ Reorder or hide panel sections, choose a compact layout, and export settings to 
 
 ## Install
 
+### Apple Silicon
+
 With [Homebrew](https://brew.sh):
 
 ```sh
 brew install --cask vorssaint
 ```
 
-Or grab the disk image from the [releases page](https://github.com/vorssaint/vorssaint-utils/releases) and drag Vorssaint into Applications.
+Or grab the disk image from the [upstream releases](https://github.com/vorssaint/vorssaint-utils/releases) and drag Vorssaint into Applications. Those builds are signed with an Apple Developer ID and notarized, so macOS opens them without a fuss and your permissions survive updates.
 
-Builds are signed with an Apple Developer ID and notarized, so macOS opens them without a fuss and your permissions survive updates.
+### Intel
+
+Download `Vorssaint-*.dmg` from this fork's [releases page](https://github.com/X-Shezi/vorssaint-intel/releases) and drag Vorssaint into Applications.
+
+Those builds are ad-hoc signed — no Apple Developer ID and no notarization sits behind them — so Gatekeeper refuses a plain double-click on anything it still sees as downloaded. Clear the quarantine once:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Vorssaint.app
+```
+
+…or right-click the app in Applications, pick **Open**, and confirm. Either works for as long as you keep that copy; only a fresh download needs it again.
+
+Fan Control is the single feature an Intel build never gets — see [What you need](#what-you-need).
 
 ## Uninstall
 
@@ -219,13 +236,15 @@ built, bundled or registered.
 ### Build it yourself
 
 ```sh
-git clone https://github.com/vorssaint/vorssaint-utils.git
-cd vorssaint-utils
+git clone https://github.com/X-Shezi/vorssaint-intel.git
+cd vorssaint-intel
 ./build.sh --dev            # build the separate Developer variant
 ./build.sh --dev --install  # install and launch it
 ```
 
-Xcode Command Line Tools are the only requirement. The [contributing guide](CONTRIBUTING.md) covers the layout and conventions. Official builds come only from the maintainer: the GPL covers the source, while the Vorssaint name, icon and look are covered by [TRADEMARKS.md](TRADEMARKS.md), so forks need their own identity.
+`build.sh` targets the host architecture, so the same three lines build an Intel or an Apple Silicon app. `ARCH=x86_64` and `ARCH=arm64` force a slice explicitly, which is how CI produces the x86_64 disk image on an Intel runner. Xcode Command Line Tools are the only requirement.
+
+The [contributing guide](CONTRIBUTING.md) covers the layout and conventions. Official builds come only from the maintainer: the GPL covers the source, while the Vorssaint name, icon and look are covered by [TRADEMARKS.md](TRADEMARKS.md), so forks need their own identity.
 
 ## When something misbehaves
 

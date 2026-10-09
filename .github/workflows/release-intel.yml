@@ -1,0 +1,112 @@
+name: Intel Release
+
+# Upstream's release workflow only runs in the official repository and only
+# with the maintainer's signing identity, so this fork cannot publish through
+# it. This workflow takes its place: the exact build the CI job already proves
+# on an Intel runner, packaged and attached to a GitHub Release. Nothing here
+# signs with a Developer ID or notarizes, so the release notes carry the
+# quarantine instructions instead of pretending Gatekeeper will be happy.
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions: {}
+
+concurrency:
+  group: intel-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish the Intel DMG
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify Intel runner
+        run: test "$(uname -m)" = x86_64
+
+      - name: Build
+        run: ARCH=x86_64 ./build.sh
+
+      - name: Verify Intel bundle contents
+        run: |
+          file build/Vorssaint | grep -F x86_64
+          file build/stage/Vorssaint.app/Contents/Frameworks/libVorssaintNowPlaying.dylib | grep -F x86_64
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchServices/com.vorssaint.utils.fan-control
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchDaemons/com.vorssaint.utils.fan-control.plist
+
+      - name: Selftest
+        run: ARCH=x86_64 ./build/Vorssaint --selftest
+
+      - name: Package DMG
+        run: ./Tools/make-dmg.sh
+
+      - name: Record checksum
+        run: |
+          cd dist
+          for image in *.dmg; do
+            shasum -a 256 "$image" > "$image.sha256"
+          done
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          version="${VERSION#v}"
+          title="Vorssaint $version for Intel Macs"
+          prerelease=""
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease="--prerelease"
+          fi
+
+          notes="$(mktemp)"
+          cat > "$notes" <<EOF
+          Unofficial Intel (x86_64) build of Vorssaint $version.
+
+          Built by CI on \`macos-15-intel\` from \`${GITHUB_SHA}\`. The app is
+          ad-hoc signed: no Apple Developer ID and no notarization stands
+          behind it, so Gatekeeper refuses a plain double-click.
+
+          ### Install
+
+          Open the disk image, drag Vorssaint into Applications, then either
+          right-click the app and choose **Open** once, or run:
+
+          \`\`\`sh
+          xattr -dr com.apple.quarantine /Applications/Vorssaint.app
+          \`\`\`
+
+          Fan Control never installs on an Intel build. Its protected helper
+          ships for Apple Silicon only, so Settings and the first-run picker
+          show the row disabled with the reason, and the helper and its launch
+          daemon are never built, bundled or registered.
+
+          ### Verify
+
+          \`\`\`sh
+          shasum -a 256 -c Vorssaint-$version.dmg.sha256
+          \`\`\`
+
+          Apple Silicon Macs should install upstream, where builds are signed
+          and notarized: https://github.com/vorssaint/vorssaint-utils
+          EOF
+
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            gh release upload "$VERSION" dist/*.dmg dist/*.sha256 --clobber
+          else
+            gh release create "$VERSION" dist/*.dmg dist/*.sha256 \
+              --verify-tag \
+              --title "$title" \
+              --notes-file "$notes" \
+              $prerelease
+          fi

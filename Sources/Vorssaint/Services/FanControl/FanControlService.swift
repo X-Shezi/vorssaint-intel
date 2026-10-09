@@ -53,7 +53,6 @@ final class FanControlService: ObservableObject {
     }
 
     static func recoverIfNeeded() {
-        guard FanControlArchitectureSupport.isSupported else { return }
         // Re-applying supersedes the recovery: a start that fails restores too.
         if let configuration = resumableConfiguration, shared.resume(configuration) { return }
         guard UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) else { return }
@@ -61,7 +60,6 @@ final class FanControlService: ObservableObject {
     }
 
     func syncWithPreferences() {
-        guard FanControlArchitectureSupport.isSupported else { return }
         if AppFeature.fanControl.isAvailable {
             if UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) {
                 restoreAutomatic()
@@ -219,7 +217,6 @@ final class FanControlService: ObservableObject {
     }
 
     static func restoreBeforeTerminationIfNeeded() {
-        guard FanControlArchitectureSupport.isSupported else { return }
         guard UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) else { return }
         shared.restoreBeforeTermination()
     }
@@ -273,6 +270,9 @@ final class FanControlService: ObservableObject {
     /// outlives the bundle, so a silent failure here reads as success forever.
     @discardableResult
     static func restoreAndUnregisterForRemoval() -> Bool {
+        // The one place the architecture matters. A build that never shipped
+        // the helper has nothing to unregister, and asking a plist that was
+        // never bundled would report the uninstall as failed.
         guard FanControlArchitectureSupport.isSupported else { return true }
         let service = appService
         guard service.status == .enabled else {

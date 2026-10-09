@@ -417,8 +417,9 @@ enum FanControlPolicy {
 }
 
 /// Fan Control needs the protected helper, which is shipped only in Apple
-/// Silicon builds. Keep the capability decision centralized so Intel never
-/// starts the service or attempts to manage its helper.
+/// Silicon builds. The decision lives here so the feature can never install
+/// without it, and so uninstall detaches cleanly from a helper that was
+/// never bundled instead of reporting a failure to remove one.
 enum FanControlArchitectureSupport {
     #if arch(arm64)
     static let isSupported = true

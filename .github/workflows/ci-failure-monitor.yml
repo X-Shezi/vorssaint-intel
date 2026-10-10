@@ -1,0 +1,88 @@
+name: CI Failure Monitor
+
+# Opens one issue per failing workflow and branch, adds a comment for each
+# repeat failure, and closes the issue when the workflow passes on main again.
+# Every value from the triggering run goes through env, never into the script.
+
+on:
+  workflow_run:
+    workflows: ["CI", "Build and Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  report-failure:
+    name: Report failure
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          TITLE="CI failure: $WORKFLOW on $BRANCH"
+
+          gh label create ci-failure --color B60205 \
+            --description "A CI workflow failed" 2> /dev/null || true
+
+          jobs="$(gh run view "$RUN_ID" --json jobs \
+            --jq '[.jobs[] | select(.conclusion == "failure") | "- " + .name] | join("\n")')"
+
+          body="$(mktemp)"
+          cat > "$body" <<EOF
+          Workflow **$WORKFLOW** failed on \`$BRANCH\` at \`$SHA\`.
+
+          Run: $RUN_URL
+
+          Failed jobs:
+
+          $jobs
+          EOF
+
+          existing="$(gh issue list --label ci-failure --state open --json number,title \
+            | jq -r --arg t "$TITLE" '.[] | select(.title == $t) | .number' | head -n 1)"
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$body"
+          else
+            gh issue create --title "$TITLE" --label ci-failure --body-file "$body"
+          fi
+
+  close-on-success:
+    name: Close resolved issues
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Close matching issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+
+          TITLE="CI failure: $WORKFLOW on $BRANCH"
+
+          gh issue list --label ci-failure --state open --json number,title \
+            | jq -r --arg t "$TITLE" '.[] | select(.title == $t) | .number' \
+            | while read -r number; do
+                gh issue close "$number" --comment "Fixed: $WORKFLOW passed again on $BRANCH. Run: $RUN_URL"
+              done

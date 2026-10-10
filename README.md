@@ -23,9 +23,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/X-Shezi/vorssaint-intel/releases"><img src="https://img.shields.io/github/v/release/X-Shezi/vorssaint-intel?label=intel%20release&color=4c8dff" alt="Latest release"></a>
-  <a href="https://github.com/X-Shezi/vorssaint-intel/releases"><img src="https://img.shields.io/github/downloads/X-Shezi/vorssaint-intel/total?color=4c8dff" alt="Downloads"></a>
-  <a href="https://github.com/X-Shezi/vorssaint-intel/actions/workflows/ci.yml"><img src="https://github.com/X-Shezi/vorssaint-intel/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
+  <a href="https://github.com/iamharshit188/vorssaint-intel/releases"><img src="https://img.shields.io/github/v/release/iamharshit188/vorssaint-intel?label=intel%20release&color=4c8dff" alt="Latest release"></a>
+  <a href="https://github.com/iamharshit188/vorssaint-intel/releases"><img src="https://img.shields.io/github/downloads/iamharshit188/vorssaint-intel/total?color=4c8dff" alt="Downloads"></a>
+  <a href="https://github.com/iamharshit188/vorssaint-intel/actions/workflows/ci.yml"><img src="https://github.com/iamharshit188/vorssaint-intel/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
   <a href="#what-you-need"><img src="https://img.shields.io/badge/macOS-14%2B%20Intel%20%26%20Apple%20Silicon-black" alt="macOS 14 and newer, Intel and Apple Silicon"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License GPL 3.0 or later"></a>
 </p>
@@ -185,7 +185,7 @@ Or grab the disk image from the [upstream releases](https://github.com/vorssaint
 
 ### Intel
 
-Download `Vorssaint-*.dmg` from this fork's [releases page](https://github.com/X-Shezi/vorssaint-intel/releases) and drag Vorssaint into Applications.
+Download `Vorssaint-*.dmg` from this fork's [releases page](https://github.com/iamharshit188/vorssaint-intel/releases) and drag Vorssaint into Applications.
 
 Those builds are ad-hoc signed — no Apple Developer ID and no notarization sits behind them — so Gatekeeper refuses a plain double-click on anything it still sees as downloaded. Clear the quarantine once:
 
@@ -194,6 +194,8 @@ xattr -dr com.apple.quarantine /Applications/Vorssaint.app
 ```
 
 …or right-click the app in Applications, pick **Open**, and confirm. Either works for as long as you keep that copy; only a fresh download needs it again.
+
+Every push to `main` publishes a prerelease tagged `build-<version>.<run>`, so the newest code is always downloadable. Stable releases come only from `v*` tags.
 
 Fan Control is the single feature an Intel build never gets — see [What you need](#what-you-need).
 
@@ -233,10 +235,18 @@ can never be installed, so Settings and the first-run picker show its row
 disabled with the reason, and the helper and its launch daemon are never
 built, bundled or registered.
 
+### CI and releases
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `build-release.yml` | Push to `main`, manual run | Builds, tests and packages the Intel DMG, then publishes a prerelease tagged `build-<version>.<run>` with a SHA-256 checksum. |
+| `release-intel.yml` | Push of a `v*` tag | Builds and publishes the stable Intel release for that tag. |
+| `ci-failure-monitor.yml` | Completion of `CI` or `Build and Release` | Opens or updates a `ci-failure` issue when a run fails, and closes it when the workflow passes on `main` again. |
+
 ### Build it yourself
 
 ```sh
-git clone https://github.com/X-Shezi/vorssaint-intel.git
+git clone https://github.com/iamharshit188/vorssaint-intel.git
 cd vorssaint-intel
 ./build.sh --dev            # build the separate Developer variant
 ./build.sh --dev --install  # install and launch it

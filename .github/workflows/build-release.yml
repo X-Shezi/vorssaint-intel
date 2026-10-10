@@ -1,0 +1,138 @@
+name: Build and Release
+
+# Every push to main is built on an Intel runner, tested, packaged and
+# published as a prerelease tagged build-<version>.<run>. The build- prefix
+# keeps these tags away from release-intel.yml, which only reacts to v* tags.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify Intel runner
+        run: test "$(uname -m)" = x86_64
+
+      - name: Build
+        run: ARCH=x86_64 ./build.sh
+
+      - name: Verify Intel bundle contents
+        run: |
+          file build/Vorssaint | grep -F x86_64
+          file build/stage/Vorssaint.app/Contents/Frameworks/libVorssaintNowPlaying.dylib | grep -F x86_64
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchServices/com.vorssaint.utils.fan-control
+          test ! -e build/stage/Vorssaint.app/Contents/Library/LaunchDaemons/com.vorssaint.utils.fan-control.plist
+
+      - name: Selftest
+        run: ARCH=x86_64 ./build/Vorssaint --selftest
+
+      - name: Unit tests
+        run: ARCH=x86_64 ./build.sh --test
+
+      - name: Rebuild
+        run: ARCH=x86_64 ./build.sh
+
+      - name: Package DMG
+        run: ./Tools/make-dmg.sh
+
+      - name: Record checksum and version
+        id: package
+        run: |
+          set -euo pipefail
+          cd dist
+          for image in *.dmg; do
+            shasum -a 256 "$image" > "$image.sha256"
+          done
+          cd ..
+          version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/stage/Vorssaint.app/Contents/Info.plist)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-files
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    name: Publish prerelease
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-files
+          path: dist
+
+      - name: Publish the prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          tag="build-$VERSION.$RUN_NUMBER"
+          title="Vorssaint $VERSION build $RUN_NUMBER (Intel)"
+
+          notes="$(mktemp)"
+          cat > "$notes" <<EOF
+          Unofficial Intel (x86_64) build $RUN_NUMBER of Vorssaint $VERSION,
+          published automatically from \`${GITHUB_SHA}\`.
+
+          Built by CI on \`macos-15-intel\`. The app is ad-hoc signed: no Apple
+          Developer ID and no notarization stands behind it, so Gatekeeper
+          refuses a plain double-click.
+
+          ### Install
+
+          Open the disk image, drag Vorssaint into Applications, then either
+          right-click the app and choose **Open** once, or run:
+
+          \`\`\`sh
+          xattr -dr com.apple.quarantine /Applications/Vorssaint.app
+          \`\`\`
+
+          ### Verify
+
+          \`\`\`sh
+          shasum -a 256 -c Vorssaint-$VERSION.dmg.sha256
+          \`\`\`
+
+          ### Changes
+          EOF
+
+          gh release create "$tag" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "$title" \
+            --notes-file "$notes" \
+            --generate-notes \
+            --prerelease

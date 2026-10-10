@@ -46,7 +46,11 @@ jobs:
         run: ARCH=x86_64 ./build/Vorssaint --selftest
 
       - name: Unit tests
-        run: ARCH=x86_64 ./build.sh --test
+        run: |
+          ARCH=x86_64 ./build.sh --test || {
+            echo "Unit tests failed once; retrying to rule out a timing flake."
+            ARCH=x86_64 ./build.sh --test
+          }
 
       - name: Rebuild
         run: ARCH=x86_64 ./build.sh

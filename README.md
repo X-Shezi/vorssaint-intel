@@ -185,7 +185,7 @@ Or grab the disk image from the [upstream releases](https://github.com/vorssaint
 
 ### Intel
 
-Download `Vorssaint-*.dmg` from this fork's [releases page](https://github.com/X-Shezi/vorssaint-intel/releases) and drag Vorssaint into Applications.
+Download `Vorssaint-*-intel.dmg` from this fork's [releases page](https://github.com/X-Shezi/vorssaint-intel/releases) and drag Vorssaint into Applications.
 
 Those builds are ad-hoc signed — no Apple Developer ID and no notarization sits behind them — so Gatekeeper refuses a plain double-click on anything it still sees as downloaded. Clear the quarantine once:
 

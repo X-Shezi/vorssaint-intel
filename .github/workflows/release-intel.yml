@@ -48,11 +48,13 @@ jobs:
       - name: Package DMG
         run: ./Tools/make-dmg.sh
 
-      - name: Record checksum
+      - name: Name the image for the fork
         run: |
+          set -euo pipefail
           cd dist
           for image in *.dmg; do
-            shasum -a 256 "$image" > "$image.sha256"
+            mv "$image" "${image%.dmg}-intel.dmg"
+            shasum -a 256 "${image%.dmg}-intel.dmg" > "${image%.dmg}-intel.dmg.sha256"
           done
 
       - name: Publish the release
@@ -62,8 +64,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          version="${VERSION#v}"
-          title="Vorssaint $version for Intel Macs"
+          # The image is named after the app version, the tag after the fork's
+          # own numbering, so every name in the notes comes from what is in
+          # dist rather than from what the tag happens to say.
+          app_version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)"
+          image="$(basename dist/*.dmg)"          # Vorssaint-3.4.1-intel.dmg
+          checksum="$image.sha256"
+          title="Vorssaint $app_version for Intel Macs"
           prerelease=""
           if [[ "$VERSION" == *-* ]]; then
             prerelease="--prerelease"
@@ -71,11 +78,11 @@ jobs:
 
           notes="$(mktemp)"
           cat > "$notes" <<EOF
-          Unofficial Intel (x86_64) build of Vorssaint $version.
+          Unofficial Intel (x86_64) build of Vorssaint $app_version, tagged $VERSION.
 
           Built by CI on \`macos-15-intel\` from \`${GITHUB_SHA}\`. The app is
-          ad-hoc signed: no Apple Developer ID and no notarization stands
-          behind it, so Gatekeeper refuses a plain double-click.
+          ad-hoc signed: no Apple Developer ID and no notarization stands behind
+          it, so Gatekeeper refuses a plain double-click.
 
           ### Install
 
@@ -87,22 +94,28 @@ jobs:
           \`\`\`
 
           Fan Control never installs on an Intel build. Its protected helper
-          ships for Apple Silicon only, so Settings and the first-run picker
-          show the row disabled with the reason, and the helper and its launch
-          daemon are never built, bundled or registered.
+          ships for Apple Silicon only, so Settings and the first-run picker show
+          the row disabled with the reason, and the helper and its launch daemon
+          are never built, bundled or registered.
 
           ### Verify
 
           \`\`\`sh
-          shasum -a 256 -c Vorssaint-$version.dmg.sha256
+          shasum -a 256 -c $checksum
           \`\`\`
 
-          Apple Silicon Macs should install upstream, where builds are signed
-          and notarized: https://github.com/vorssaint/vorssaint-utils
+          Apple Silicon Macs should install upstream, where builds are signed and
+          notarized: https://github.com/vorssaint/vorssaint-utils
           EOF
 
+          # Idempotent: a rerun replaces the assets and rewrites the notes
+          # instead of publishing the tag twice.
           if gh release view "$VERSION" > /dev/null 2>&1; then
             gh release upload "$VERSION" dist/*.dmg dist/*.sha256 --clobber
+            gh release edit "$VERSION" \
+              --title "$title" \
+              --notes-file "$notes" \
+              $prerelease
           else
             gh release create "$VERSION" dist/*.dmg dist/*.sha256 \
               --verify-tag \

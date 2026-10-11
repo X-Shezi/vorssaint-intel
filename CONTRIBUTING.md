@@ -122,9 +122,12 @@ That workflow never runs here: it is gated to the official repository and the
 maintainer's signing identity. This fork publishes through
 [the Intel release workflow](.github/workflows/release-intel.yml) instead. A
 tag push does not start CI, so the release job rebuilds the x86_64 app on
-`macos-15-intel`, re-checks the bundle and its selftest, packages the DMG with
-a `.sha256`, and attaches both to a GitHub Release for the tag. Rerunning the
-job replaces the assets in place rather than creating a second release.
+`macos-15-intel`, re-checks the bundle and its selftest, renames the image
+`Vorssaint-<version>-intel.dmg`, records its `.sha256`, and attaches both to a
+GitHub Release for the tag. Every name in the release notes is read back out
+of `dist` and `Resources/Info.plist`, so a tag that numbers the fork differently
+from the app cannot describe the wrong file. Rerunning the job replaces the
+assets and the notes in place rather than publishing the tag twice.
 
 The protected `release-signing` environment holds the signing and notarization
 credentials. The workflow builds, signs and notarizes the app and DMG, then

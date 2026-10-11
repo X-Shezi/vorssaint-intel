@@ -6,12 +6,19 @@ The permission and uninstall commands below all point at Vorssaint's bundle iden
 
 ## The app will not open
 
-Official Vorssaint builds are signed with an Apple Developer ID and notarized, so they open with no security warning.
+Official Vorssaint builds are signed with an Apple Developer ID and notarized, so they open with no security warning. The Intel builds this fork releases are ad-hoc signed and trip the same gate.
 
-If you built the app yourself or grabbed an unofficial copy, macOS Gatekeeper may stop it on the first launch. To open it anyway, do one of these.
+If you built the app yourself, or installed an unofficial copy, macOS Gatekeeper may stop it on the first launch. To open it anyway, do one of these.
 
 1. Right click, or Control click, Vorssaint in Applications, choose Open, and confirm.
 2. Or open System Settings, Privacy and Security, find the note about Vorssaint being blocked, and click Open Anyway.
+3. Or clear the quarantine on a copy you trust:
+
+    ```sh
+    xattr -dr com.apple.quarantine /Applications/Vorssaint.app
+    ```
+
+The quarantine only comes back when macOS sees a fresh download, so each copy needs this once.
 
 Vorssaint lives in the menu bar, so once it starts, look for its icon up there rather than in the Dock.
 

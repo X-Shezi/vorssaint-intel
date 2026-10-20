@@ -17,41 +17,31 @@ jobs:
     name: Diagnose Intel unit-test abort
     if: github.event_name == 'pull_request' && github.head_ref == 'diagnose/intel-test-abort'
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - name: Build test binary only
-        run: ARCH=x86_64 ./build.sh --test-suite=harness
-
-      - name: Run every suite in isolation
+      - name: Metal device report
         run: |
-          set +e
-          aborted=""
-          ./build/metrics-tests --list > "$RUNNER_TEMP/suites.txt"
-          while IFS= read -r s; do
-            ./build/metrics-tests --suite="$s" > "$RUNNER_TEMP/s_$s.log" 2>&1
-            rc=$?
-            printf '%-26s rc=%-4s %s\n' "$s" "$rc" "$(tail -1 "$RUNNER_TEMP/s_$s.log")"
-            if [ "$rc" -ne 0 ]; then aborted="$s"; fi
-          done < "$RUNNER_TEMP/suites.txt"
-          echo "ABORTING_SUITE=${aborted:-none}" >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/probe.swift" <<'EOF'
+          import Foundation
+          import Metal
 
-      - name: Backtrace the abort
-        if: always()
-        run: |
-          set +e
-          if [ "${ABORTING_SUITE:-none}" != "none" ]; then
-            echo "=== lldb on suite: $ABORTING_SUITE ==="
-            lldb -b -o run -o 'bt all' -o quit -- ./build/metrics-tests --suite="$ABORTING_SUITE"
-          else
-            echo "=== no single suite aborted; lldb on the full run ==="
-            lldb -b -o run -o 'bt all' -o quit -- ./build/metrics-tests
-          fi
+          print("default:", MTLCreateSystemDefaultDevice() as Any)
+          let devices = MTLCopyAllDevices()
+          print("copied devices:", devices.count)
+          for device in devices {
+              let architecture = (device as? NSObject)?.value(forKey: "architecture")
+              print("name:", device.name, "registry:", device.registryID,
+                    "architecture:", architecture as Any, "architectureIsNil:", architecture == nil)
+          }
+          EOF
+          swiftc -o "$RUNNER_TEMP/probe" "$RUNNER_TEMP/probe.swift"
+          "$RUNNER_TEMP/probe"
 
-      - name: Crash reports
+      - name: Crash report
         if: always()
         run: |
           ls -la "$HOME/Library/Logs/DiagnosticReports" 2>/dev/null || true

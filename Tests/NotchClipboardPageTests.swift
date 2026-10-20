@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Vorssaint
 
 import AppKit
+import Metal
 import SwiftUI
 
 /// The island's clipboard page as it reads its entry size, its keys and the
@@ -168,16 +169,21 @@ enum NotchClipboardPageTests {
         // A 3:2 picture in a 40-point row is 60 points wide, narrower than the
         // 72 points a compact row gives it: it is rounded at its own corners,
         // in a compact row and in a comfortable card alike.
-        for compact in [true, false] {
-            let picture = Page().thumbnail(Color.white.aspectRatio(1.5, contentMode: .fit), compact: compact)
-                .frame(width: 100, height: 40, alignment: .topLeading)
-            let renderer = ImageRenderer(content: picture)
-            renderer.scale = 2
-            let corners = renderer.cgImage.map { image in
-                [alpha(image, x: 0, y: 0), alpha(image, x: 119, y: 0), alpha(image, x: 119, y: 79), alpha(image, x: 60, y: 40)]
+        // Those corners are read from pixels, and the pixels of a rendered
+        // SwiftUI view only exist once Metal has drawn them; where Metal has
+        // no architecture to draw with, there are none to read.
+        if renderedPixelsAreReadable {
+            for compact in [true, false] {
+                let picture = Page().thumbnail(Color.white.aspectRatio(1.5, contentMode: .fit), compact: compact)
+                    .frame(width: 100, height: 40, alignment: .topLeading)
+                let renderer = ImageRenderer(content: picture)
+                renderer.scale = 2
+                let corners = renderer.cgImage.map { image in
+                    [alpha(image, x: 0, y: 0), alpha(image, x: 119, y: 0), alpha(image, x: 119, y: 79), alpha(image, x: 60, y: 40)]
+                }
+                suite.expect(corners == [0, 0, 0, 255],
+                             "a \(compact ? "compact" : "comfortable") clipboard thumbnail is rounded at the picture's own corners")
             }
-            suite.expect(corners == [0, 0, 0, 255],
-                         "a \(compact ? "compact" : "comfortable") clipboard thumbnail is rounded at the picture's own corners")
         }
 
         // Comfortable entries are whole already, nothing stored included.
@@ -189,6 +195,21 @@ enum NotchClipboardPageTests {
                          "the clipboard page reads \"\(stored)\" as comfortable entries, which never open on hover")
         }
     }
+
+    /// Whether pixels can be read out of a rendered SwiftUI image here.
+    ///
+    /// SwiftUI hands the picture it rendered to RenderBox, which draws it with
+    /// Metal, so the image yields pixels only once Metal has produced them.
+    /// The virtualized Intel runner's GPU reports no Metal architecture, and
+    /// Metal aborts the process rather than load a library for a device that
+    /// has none: that runner can hold the image but cannot read it, and trying
+    /// would take the whole test run down with it.
+    private static let renderedPixelsAreReadable: Bool = {
+        guard let device = MTLCreateSystemDefaultDevice() else { return true }
+        // `architecture` is nonnull in the SDK, so a device without one would
+        // trap the unwrap: ask through ObjC, which reports nil as nil.
+        return (device as? NSObject)?.value(forKey: "architecture") != nil
+    }()
 
     /// The opacity of one pixel, counted from the image's top left.
     private static func alpha(_ image: CGImage, x: Int, y: Int) -> UInt8 {

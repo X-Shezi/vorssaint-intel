@@ -13,8 +13,54 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  diagnose:
+    name: Diagnose Intel unit-test abort
+    if: github.event_name == 'pull_request' && github.head_ref == 'diagnose/intel-test-abort'
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build test binary only
+        run: ARCH=x86_64 ./build.sh --test-suite=harness
+
+      - name: Run every suite in isolation
+        run: |
+          set +e
+          aborted=""
+          ./build/metrics-tests --list > "$RUNNER_TEMP/suites.txt"
+          while IFS= read -r s; do
+            ./build/metrics-tests --suite="$s" > "$RUNNER_TEMP/s_$s.log" 2>&1
+            rc=$?
+            printf '%-26s rc=%-4s %s\n' "$s" "$rc" "$(tail -1 "$RUNNER_TEMP/s_$s.log")"
+            if [ "$rc" -ne 0 ]; then aborted="$s"; fi
+          done < "$RUNNER_TEMP/suites.txt"
+          echo "ABORTING_SUITE=${aborted:-none}" >> "$GITHUB_ENV"
+
+      - name: Backtrace the abort
+        if: always()
+        run: |
+          set +e
+          if [ "${ABORTING_SUITE:-none}" != "none" ]; then
+            echo "=== lldb on suite: $ABORTING_SUITE ==="
+            lldb -b -o run -o 'bt all' -o quit -- ./build/metrics-tests --suite="$ABORTING_SUITE"
+          else
+            echo "=== no single suite aborted; lldb on the full run ==="
+            lldb -b -o run -o 'bt all' -o quit -- ./build/metrics-tests
+          fi
+
+      - name: Crash reports
+        if: always()
+        run: |
+          ls -la "$HOME/Library/Logs/DiagnosticReports" 2>/dev/null || true
+          latest=$(ls -t "$HOME/Library/Logs/DiagnosticReports"/*.ips 2>/dev/null | head -1)
+          if [ -n "$latest" ]; then echo "=== $latest ==="; cat "$latest"; fi
+
   intel:
     name: Intel build & selftest
+    if: github.head_ref != 'diagnose/intel-test-abort'
     runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
@@ -55,6 +101,7 @@ jobs:
 
   compatibility:
     name: Swift 6.0.3 compatibility
+    if: github.head_ref != 'diagnose/intel-test-abort'
     runs-on: macos-15
     timeout-minutes: 30
     env:
@@ -80,6 +127,7 @@ jobs:
 
   build:
     name: Build & selftest
+    if: github.head_ref != 'diagnose/intel-test-abort'
     runs-on: macos-26
     timeout-minutes: 30
     steps:

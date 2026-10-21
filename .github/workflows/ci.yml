@@ -29,14 +29,18 @@ jobs:
           import Foundation
           import Metal
 
-          print("default:", MTLCreateSystemDefaultDevice() as Any)
-          let devices = MTLCopyAllDevices()
-          print("copied devices:", devices.count)
-          for device in devices {
-              let architecture = (device as? NSObject)?.value(forKey: "architecture")
-              print("name:", device.name, "registry:", device.registryID,
-                    "architecture:", architecture as Any, "architectureIsNil:", architecture == nil)
+          guard let device = MTLCreateSystemDefaultDevice() else {
+              print("no default device")
+              exit(0)
           }
+          print("deviceName:", device.name)
+          print("deviceClass:", String(describing: type(of: device)))
+          let architecture = (device as? NSObject)?.value(forKey: "architecture")
+          print("architecture:", architecture as Any)
+          let name = (architecture as? NSObject)?.value(forKey: "name")
+          print("architectureName:", name as Any, "isEmpty:", (name as? String)?.isEmpty as Any)
+          print("registryID:", device.registryID)
+          print("allDevices:", MTLCopyAllDevices().map(\.name) as Any)
           EOF
           swiftc -o "$RUNNER_TEMP/probe" "$RUNNER_TEMP/probe.swift"
           "$RUNNER_TEMP/probe"

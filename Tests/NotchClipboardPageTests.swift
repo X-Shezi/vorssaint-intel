@@ -200,15 +200,21 @@ enum NotchClipboardPageTests {
     ///
     /// SwiftUI hands the picture it rendered to RenderBox, which draws it with
     /// Metal, so the image yields pixels only once Metal has produced them.
-    /// The virtualized Intel runner's GPU reports no Metal architecture, and
-    /// Metal aborts the process rather than load a library for a device that
-    /// has none: that runner can hold the image but cannot read it, and trying
-    /// would take the whole test run down with it.
+    /// The virtualized Intel runner's GPU is one Metal knows nothing about --
+    /// its architecture reads "Unknown" -- and Metal aborts the process rather
+    /// than load a library it cannot slice for it: that runner can hold the
+    /// image but cannot read it, and trying would take the whole test run down
+    /// with it. A machine with no GPU at all renders SwiftUI in software, and
+    /// those pixels are readable.
     private static let renderedPixelsAreReadable: Bool = {
         guard let device = MTLCreateSystemDefaultDevice() else { return true }
         // `architecture` is nonnull in the SDK, so a device without one would
         // trap the unwrap: ask through ObjC, which reports nil as nil.
-        return (device as? NSObject)?.value(forKey: "architecture") != nil
+        guard let architecture = (device as? NSObject)?.value(forKey: "architecture"),
+              let name = (architecture as? NSObject)?.value(forKey: "name") as? String else { return false }
+        // Metal names an architecture it cannot identify "Unknown", which is
+        // what it refuses to load a library for.
+        return name != "Unknown"
     }()
 
     /// The opacity of one pixel, counted from the image's top left.
